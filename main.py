@@ -2,8 +2,8 @@ from telethon.sync import TelegramClient
 import json
 import re
 
-api_id = 11111111
-api_hash = "SDAS432DDS"
+api_id = 12345677889
+api_hash = "my.telegram.org hash"
 channel_username = "uzmacbook"
 
 client = TelegramClient("session", api_id, api_hash)
@@ -62,7 +62,7 @@ def parse_product(text):
         "included": re.compile(r"komplektda\s*[:\-]?\s*(.+)", re.I),
     }
 
-    # Also check the title for Apple M1, M2, M3 chips explicitly
+    # Also check the title for Apple M1/M2/M3 chips
     apple_chip_match = re.search(r"(macbook\s*pro\s*m[123])", product["title"].lower())
     if apple_chip_match:
         product["cpu"] = apple_chip_match.group(1).upper()
@@ -70,19 +70,21 @@ def parse_product(text):
     for line in lines:
         line_lower = line.lower()
 
-        # Price exact match at line start (e.g. "985$")
+        # Price match like: "985$"
         if product["price"] is None:
             price_match = re.match(r"^\s*([\d\s,.]+)\s*\$", line)
             if price_match:
                 product["price"] = price_match.group(1).strip() + "$"
                 continue
 
+        # Match other fields
         for key, pattern in patterns.items():
             if product[key] is None:
                 m = pattern.search(line)
                 if m:
-                    product[key] = m.group(len(m.groups())) if len(m.groups()) > 1 else m.group(1)
-                    product[key] = product[key].strip()
+                    value = m.group(len(m.groups())) if len(m.groups()) > 1 else m.group(1)
+                    if value:
+                        product[key] = value.strip()
                     break
         else:
             product["other"].append(line)
@@ -90,11 +92,11 @@ def parse_product(text):
     product["other"] = "\n".join(product["other"]) if product["other"] else None
     return product
 
-
+# Scraping loop
 products = []
 
 with client:
-    print("✅ Connected! Fetching last 50 posts with keywords...\n")
+    print("✅ Connected! Fetching last 100 posts with keywords...\n")
     for msg in client.iter_messages(channel_username, limit=100):
         if msg.text and contains_keywords(msg.text):
             parsed = parse_product(msg.text)
@@ -106,6 +108,7 @@ with client:
             products.append(parsed)
             print(f"#{msg.id} - {parsed['title']}")
 
+# Save to file
 with open("products.json", "w", encoding="utf-8") as f:
     json.dump(products, f, ensure_ascii=False, indent=2)
 
