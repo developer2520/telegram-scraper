@@ -1,14 +1,15 @@
 from telethon.sync import TelegramClient
 import json
 import re
+import os
 
-api_id = 12345677889
-api_hash = "my.telegram.org hash"
+api_id = 22367763
+api_hash = "5cf7b52befeb13143c04c6ece4488de2"
 channel_username = "uzmacbook"
 
 client = TelegramClient("session", api_id, api_hash)
 
-# Keywords to filter posts containing price info in Uzbek + English
+# Keywords to filter posts containing price info
 keywords = ["narx", "narxi", "price"]
 
 def contains_keywords(text):
@@ -27,7 +28,7 @@ def parse_product(text):
         "warranty": None,
         "condition": None,
         "year": None,
-        "included": None,  # Komplektda
+        "included": None,
         "price": None,
         "other": [],
     }
@@ -38,7 +39,6 @@ def parse_product(text):
         "kafolat", "holati", "yili", "protsessor", "komplektda", "narx", "price"
     ]
 
-    # Title heuristic: first line not matching spec keywords
     for i, line in enumerate(lines):
         if not any(sk in line.lower() for sk in spec_keywords):
             product["title"] = line
@@ -48,7 +48,6 @@ def parse_product(text):
         product["title"] = lines[0]
         lines = lines[1:]
 
-    # Regex patterns for fields
     patterns = {
         "price": re.compile(r"narx[i]?\s*[:\-]?\s*([\d\s,.$]+)|^([\d\s,.$]+)\s*\$$", re.I),
         "cpu": re.compile(r"(cpu|protsessor|core\s*i\d{1,2}|celeron|pentium|ryzen[\d\.]*|apple\s*m[123])\s*[:\-]?\s*(.+)", re.I),
@@ -62,22 +61,17 @@ def parse_product(text):
         "included": re.compile(r"komplektda\s*[:\-]?\s*(.+)", re.I),
     }
 
-    # Also check the title for Apple M1/M2/M3 chips
     apple_chip_match = re.search(r"(macbook\s*pro\s*m[123])", product["title"].lower())
     if apple_chip_match:
         product["cpu"] = apple_chip_match.group(1).upper()
 
     for line in lines:
-        line_lower = line.lower()
-
-        # Price match like: "985$"
         if product["price"] is None:
             price_match = re.match(r"^\s*([\d\s,.]+)\s*\$", line)
             if price_match:
                 product["price"] = price_match.group(1).strip() + "$"
                 continue
 
-        # Match other fields
         for key, pattern in patterns.items():
             if product[key] is None:
                 m = pattern.search(line)
@@ -92,24 +86,36 @@ def parse_product(text):
     product["other"] = "\n".join(product["other"]) if product["other"] else None
     return product
 
-# Scraping loop
+# Ensure image folder exists
+os.makedirs("images", exist_ok=True)
+
+# Scrape
 products = []
 
 with client:
-    print("✅ Connected! Fetching last 100 posts with keywords...\n")
+    print("✅ Connected! Fetching last 100 posts...\n")
     for msg in client.iter_messages(channel_username, limit=100):
         if msg.text and contains_keywords(msg.text):
             parsed = parse_product(msg.text)
+
+            # Handle image download if photo exists
+            photo_path = None
+            if msg.photo:
+                photo_path = f"images/{msg.id}.jpg"
+                msg.download_media(file=photo_path)
+
             parsed.update({
                 "id": msg.id,
                 "date": str(msg.date),
-                "raw_text": msg.text
+                "raw_text": msg.text,
+                "photo": photo_path
             })
+
             products.append(parsed)
-            print(f"#{msg.id} - {parsed['title']}")
+            print(f"#{msg.id} - {parsed['title']} ({'📷 yes' if photo_path else 'no photo'})")
 
 # Save to file
 with open("products.json", "w", encoding="utf-8") as f:
     json.dump(products, f, ensure_ascii=False, indent=2)
 
-print(f"\n💾 Saved {len(products)} parsed products to products.json")
+print(f"\n💾 Saved {len(products)} products with photos to products.json")

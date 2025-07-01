@@ -31,6 +31,11 @@
       justify-content: space-between;
       white-space: pre-wrap;
     }
+    .product-img {
+      width: 100%;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
     .product-name {
       font-size: 1.2rem;
       font-weight: bold;
@@ -71,6 +76,7 @@
 
         container.innerHTML = products.map(p => `
           <div class="product-card">
+            ${p.photo ? `<img src="${p.photo}" alt="Product Image" class="product-img" />` : ""}
             <div class="product-name">${p.title || "Unknown Product"}</div>
             <div class="product-price">${p.price || "Narx not found"}</div>
             <div class="product-info"><strong>CPU:</strong> ${p.cpu || "N/A"}</div>
@@ -79,9 +85,8 @@
             ${p.other ? `<div class="product-info">${p.other}</div>` : ""}
             <div class="product-date">${new Date(p.date).toLocaleDateString()}</div>
             <div class="product-info"><strong>Display:</strong> ${p.display || "N/A"}</div>
-<div class="product-info"><strong>Battery:</strong> ${p.battery || "N/A"}</div>
-<div class="product-info"><strong>Warranty:</strong> ${p.warranty || "N/A"}</div>
-
+            <div class="product-info"><strong>Battery:</strong> ${p.battery || "N/A"}</div>
+            <div class="product-info"><strong>Warranty:</strong> ${p.warranty || "N/A"}</div>
           </div>
         `).join('');
       })

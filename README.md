@@ -5,3 +5,4 @@ and run it with:
 ```python main.py```
 
 
+![How it works](public/image.png)
